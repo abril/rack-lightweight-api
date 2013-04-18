@@ -35,6 +35,18 @@ module Rack
 
         [status, headers, body]
 
+      when "PUT"
+        
+        status, headers, body = @app.call(env)
+        remove_from_cache(env['REQUEST_URI']) if middleware_active && [200, 202].include?(status)
+        [status, headers, body]
+
+      when "DELETE"
+
+        status, headers, body = @app.call(env)
+        remove_from_cache(env['REQUEST_URI']) if middleware_active && [200, 202, 204].include?(status)
+        [status, headers, body]
+
       else
         @app.call(env)
       end
@@ -43,10 +55,7 @@ module Rack
     private
 
     def middleware_active_for_request?(env)
-      return false if @@_cache_store.nil?
-      return false if bypass_by_route?(env['REQUEST_URI'])
-      return false if bypass_by_headers?(env)
-      true
+      (@@_cache_store.nil? || bypass_by_route?(env['REQUEST_URI']) || bypass_by_headers?(env) ? false : true)
     end
 
     def bypass_by_route?(request_uri)
@@ -84,6 +93,11 @@ module Rack
         log "storing headers for #{request_uri}"
         @@_cache_store.set(request_uri, headers, :expires_in => @@_fallback_ttl)
       end
+    end
+
+    def remove_from_cache(request_uri)
+      log "cleaning cache for #{request_uri}"
+      @@_cache_store.delete(request_uri)
     end
 
     def log(message)
