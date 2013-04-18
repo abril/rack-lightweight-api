@@ -6,8 +6,9 @@ module Rack
   class LightweightAPI
     
     @@_cache_store      = nil
-    @@_default_ttl      = 3600 # 1 hora
-    @@_exclude_routes   = nil
+    @@_fallback_ttl     = 3600 # 1 hora
+    @@_bypass_routes    = nil
+    @@_bypass_headers   = nil
     
     def self.cache
       @@_cache_store
@@ -16,18 +17,25 @@ module Rack
       @@_cache_store = cache_store
     end
 
-    def self.default_ttl
-      @@_default_ttl
+    def self.fallback_ttl
+      @@_fallback_ttl
     end   
-    def self.default_ttl=(default_ttl)
-      @@_default_ttl = default_ttl
+    def self.fallback_ttl=(fallback_ttl)
+      @@_fallback_ttl = fallback_ttl
     end
 
-    def self.exclude_routes
-      @@_exclude_routes
+    def self.bypass_routes
+      @@_bypass_routes
     end   
-    def self.exclude_routes=(exclude_routes)
-      @@_exclude_routes = exclude_routes
+    def self.bypass_routes=(bypass_routes)
+      @@_bypass_routes = bypass_routes
+    end
+
+    def self.bypass_headers
+      @@_bypass_headers
+    end   
+    def self.bypass_headers=(bypass_headers)
+      @@_bypass_headers = bypass_headers
     end
 
     module Cache
