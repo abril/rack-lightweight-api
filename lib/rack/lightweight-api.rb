@@ -7,6 +7,8 @@ module Rack
   class LightweightAPI < ::Rack::ConditionalGet
 
     def call(env)
+      @@_logger = env['rack.logger']
+
       middleware_active = middleware_active_for_request?(env['REQUEST_URI'])
 
       case env['REQUEST_METHOD']
@@ -19,9 +21,9 @@ module Rack
             headers = Utils::HeaderHash.new(headers)
             return http_response_304(env['REQUEST_URI'], headers) if fresh?(env, headers)
           end
-        end
 
-        STDOUT.puts "[LightweightAPI] Calling app for #{env['REQUEST_URI']}"
+          log "calling app for #{env['REQUEST_URI']}"
+        end
 
         status, headers, body = @app.call(env)
         headers = Utils::HeaderHash.new(headers)
@@ -42,14 +44,16 @@ module Rack
 
     def middleware_active_for_request?(request_uri)
       return false if @@_cache_store.nil?
-      return true  if @@_exclude_routes.nil?
-      excluded_route?(request_uri) ? false : true
+      return false if bypass_by_route?(request_uri)
+      true
+      # return false if bypass_by_headers?(request_uri)
     end
 
-    def excluded_route?(request_uri)
-      @@_exclude_routes.each do |route|
-        if route =~ request_uri
-          STDOUT.puts "[LightweightAPI] Bypassing excluded route #{request_uri}"
+    def bypass_by_route?(request_uri)
+      return true  if @@_bypass_routes.nil?
+      @@_bypass_routes.each do |bypass_route|
+        if bypass_route =~ request_uri
+          log "bypass_routes hit #{request_uri}"
           return true
         end
       end
@@ -57,7 +61,7 @@ module Rack
     end
 
     def http_response_304(request_uri, headers)
-      STDOUT.puts "[LightweightAPI] Halting 304 for #{request_uri}"
+      log "halting 304 for #{request_uri}"
       headers.delete('Content-Type')
       headers.delete('Content-Length')
       headers.delete('Cache-Control')
@@ -66,8 +70,13 @@ module Rack
 
     def store_in_cache(request_uri, headers)
       if (headers.has_key?('ETag') || headers.has_key?('Last-Modified'))
-        @@_cache_store.set(request_uri, headers, :expires_in => @@_default_ttl)
+        log "storing headers for #{request_uri}"
+        @@_cache_store.set(request_uri, headers, :expires_in => @@_fallback_ttl)
       end
+    end
+
+    def log(message)
+      @@_logger.debug "\033[1;31m[LightweightAPI]\033[0;36m #{message}\033[0m" if @@_logger.respond_to?(:debug)
     end
 
   end
