@@ -9,7 +9,7 @@ module Rack
     def call(env)
       @@_logger = env['rack.logger']
 
-      middleware_active = middleware_active_for_request?(env['REQUEST_URI'])
+      middleware_active = middleware_active_for_request?(env)
 
       case env['REQUEST_METHOD']
       when "GET", "HEAD"
@@ -42,18 +42,29 @@ module Rack
 
     private
 
-    def middleware_active_for_request?(request_uri)
+    def middleware_active_for_request?(env)
       return false if @@_cache_store.nil?
-      return false if bypass_by_route?(request_uri)
+      return false if bypass_by_route?(env['REQUEST_URI'])
+      return false if bypass_by_headers?(env)
       true
-      # return false if bypass_by_headers?(request_uri)
     end
 
     def bypass_by_route?(request_uri)
-      return true  if @@_bypass_routes.nil?
+      return true if @@_bypass_routes.nil?
       @@_bypass_routes.each do |bypass_route|
         if bypass_route =~ request_uri
-          log "bypass_routes hit #{request_uri}"
+          log "bypass_by_route? hit #{request_uri}"
+          return true
+        end
+      end
+      false
+    end
+
+    def bypass_by_headers?(env)
+      return true if @@_bypass_headers.nil?
+      @@_bypass_headers.each do |bypass_header|
+        if env.has_key?('HTTP_' + bypass_header.upcase.gsub(/\-/, '_'))
+          log "bypass_by_headers? hit #{bypass_header}"
           return true
         end
       end
